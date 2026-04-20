@@ -3,165 +3,160 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AVITO CLONE | MARKET</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <title>StyleFlow — Магазин одежды</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
-        body { font-family: 'Inter', sans-serif; background: #f4f4f4; color: #333; }
-        .glass-btn { background: #00aa61; color: #fff; font-weight: 700; padding: 12px; border-radius: 10px; width: 100%; transition: 0.3s; }
-        .glass-btn:hover { background: #008f51; }
-        .card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        .nav-btn { font-size: 12px; font-weight: 600; color: #666; }
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        :root {
+            --primary: #222;
+            --accent: #ff4757;
+            --light: #f4f4f4;
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; }
+
+        header {
+            background: var(--primary);
+            color: white;
+            padding: 1rem 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .cart-btn {
+            background: var(--accent);
+            border: none;
+            color: white;
+            padding: 8px 15px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        .hero {
+            background: #e0e0e0;
+            height: 300px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .container {
+            padding: 2rem 5%;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .product-card {
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 8px;
+            transition: transform 0.2s;
+            text-align: center;
+        }
+
+        .product-card:hover { transform: translateY(-5px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+
+        .product-img {
+            width: 100%;
+            height: 200px;
+            background: #eee;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+        }
+
+        .price { color: var(--accent); font-weight: bold; font-size: 1.2rem; margin: 10px 0; }
+
+        .buy-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            width: 100%;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .buy-btn:hover { background: #444; }
+
+        /* Простая модалка корзины */
+        #cart-modal {
+            display: none;
+            position: fixed;
+            right: 20px;
+            top: 70px;
+            background: white;
+            border: 1px solid #ccc;
+            padding: 20px;
+            width: 300px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
     </style>
 </head>
-<body class="pb-24">
+<body>
 
-    <header class="bg-white p-4 sticky top-0 z-50 shadow-sm flex justify-between items-center">
-        <h1 class="text-xl font-black text-[#00aa61] tracking-tighter">MARKET PLACE</h1>
-        <button onclick="openModal('auth-modal')" id="auth-btn" class="nav-btn">Войти</button>
-    </header>
+<header>
+    <h1>StyleFlow</h1>
+    <button class="cart-btn" onclick="toggleCart()">Корзина (<span id="cart-count">0</span>)</button>
+</header>
 
-    <div class="flex gap-3 overflow-x-auto p-4 no-scrollbar">
-        <button class="bg-white px-4 py-2 rounded-full shadow-sm text-xs font-bold whitespace-nowrap">🚗 Авто</button>
-        <button class="bg-white px-4 py-2 rounded-full shadow-sm text-xs font-bold whitespace-nowrap">🏠 Недвижимость</button>
-        <button class="bg-white px-4 py-2 rounded-full shadow-sm text-xs font-bold whitespace-nowrap">📱 Электроника</button>
-        <button class="bg-white px-4 py-2 rounded-full shadow-sm text-xs font-bold whitespace-nowrap">🛠 Услуги</button>
+<section class="hero">
+    <h2>Новая коллекция 2026</h2>
+    <p>Стиль, который говорит за вас</p>
+</section>
+
+<div class="container" id="products">
     </div>
 
-    <main id="ads-list" class="grid grid-cols-2 gap-3 p-4"></main>
+<div id="cart-modal">
+    <h3>Ваша корзина</h3>
+    <div id="cart-items"></div>
+    <hr style="margin: 10px 0;">
+    <button class="buy-btn">Оформить заказ</button>
+</div>
 
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex justify-around items-center">
-        <button onclick="location.reload()" class="nav-btn">Главная</button>
-        <button onclick="openModal('add-modal')" class="bg-[#00aa61] text-white px-6 py-2 rounded-full font-bold text-sm">+ Подать</button>
-        <button onclick="alert('В разработке')" class="nav-btn">Профиль</button>
-    </nav>
+<script>
+    const products = [
+        { id: 1, name: "Базовая футболка", price: 1500 },
+        { id: 2, name: "Худи Oversize", price: 3500 },
+        { id: 3, name: "Джинсы Straight", price: 4200 },
+        { id: 4, name: "Кепка Minimal", price: 1200 }
+    ];
 
-    <div id="add-modal" class="modal">
-        <div class="bg-white w-full max-w-md m-4 p-6 rounded-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <h2 class="text-xl font-bold">Новое объявление</h2>
-            <input type="file" id="ad-img" accept="image/*" class="block w-full text-sm text-gray-500">
-            <input type="text" id="ad-title" placeholder="Название товара" class="w-full border p-3 rounded-lg">
-            <select id="ad-cat" class="w-full border p-3 rounded-lg">
-                <option value="Авто">Авто</option>
-                <option value="Электроника">Электроника</option>
-                <option value="Недвижимость">Недвижимость</option>
-            </select>
-            <input type="number" id="ad-price" placeholder="Цена (₽)" class="w-full border p-3 rounded-lg">
-            <textarea id="ad-desc" placeholder="Описание товара" class="w-full border p-3 rounded-lg h-24"></textarea>
-            <button onclick="publishAd()" id="pub-btn" class="glass-btn">Опубликовать</button>
-            <button onclick="closeModals()" class="w-full text-gray-400 text-xs uppercase font-bold">Отмена</button>
-        </div>
-    </div>
+    let cartCount = 0;
 
-    <div id="auth-modal" class="modal">
-        <div class="bg-white p-6 rounded-2xl w-full max-w-xs space-y-4 text-center">
-            <h2 class="text-xl font-bold">Вход</h2>
-            <input type="email" id="email" placeholder="Email" class="w-full border p-3 rounded-lg">
-            <input type="password" id="pass" placeholder="Пароль" class="w-full border p-3 rounded-lg">
-            <button onclick="handleAuth()" class="glass-btn">Войти / Регистрация</button>
-            <button onclick="closeModals()" class="text-gray-400 text-xs">Закрыть</button>
-        </div>
-    </div>
+    function renderProducts() {
+        const container = document.getElementById('products');
+        container.innerHTML = products.map(p => `
+            <div class="product-card">
+                <div class="product-img">Фото товара</div>
+                <h3>${p.name}</h3>
+                <p class="price">${p.price} ₽</p>
+                <button class="buy-btn" onclick="addToCart()">Добавить</button>
+            </div>
+        `).join('');
+    }
 
-    <script>
-        // КОНФИГ (Замени на свой из Firebase Console)
-        const firebaseConfig = {
-            apiKey: "ТВОЙ_API_KEY",
-            authDomain: "ТВОЙ_DOMAIN",
-            projectId: "ТВОЙ_PROJECT_ID",
-            storageBucket: "ТВОЙ_STORAGE_BUCKET",
-            messagingSenderId: "ID",
-            appId: "APP_ID"
-        };
-        firebase.initializeApp(firebaseConfig);
-        
-        const db = firebase.firestore();
-        const storage = firebase.storage();
-        const auth = firebase.auth();
+    function addToCart() {
+        cartCount++;
+        document.getElementById('cart-count').innerText = cartCount;
+        alert("Товар добавлен в корзину!");
+    }
 
-        let currentUser = null;
+    function toggleCart() {
+        const modal = document.getElementById('cart-modal');
+        modal.style.display = modal.style.display === 'block' ? 'none' : 'block';
+    }
 
-        auth.onAuthStateChanged(user => {
-            if (user) {
-                currentUser = user;
-                document.getElementById('auth-btn').innerText = "Выйти";
-            } else {
-                currentUser = null;
-                document.getElementById('auth-btn').innerText = "Войти";
-            }
-        });
+    renderProducts();
+</script>
 
-        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
-        function closeModals() { document.querySelectorAll('.modal').forEach(m => m.style.display = 'none'); }
-
-        async function handleAuth() {
-            const email = document.getElementById('email').value;
-            const pass = document.getElementById('pass').value;
-            try {
-                await auth.signInWithEmailAndPassword(email, pass);
-                closeModals();
-            } catch (e) {
-                try {
-                    await auth.createUserWithEmailAndPassword(email, pass);
-                    closeModals();
-                } catch (err) { alert(err.message); }
-            }
-        }
-
-        async function publishAd() {
-            if(!currentUser) return openModal('auth-modal');
-            const file = document.getElementById('ad-img').files[0];
-            const title = document.getElementById('ad-title').value;
-            const price = document.getElementById('ad-price').value;
-            const desc = document.getElementById('ad-desc').value;
-            const cat = document.getElementById('ad-cat').value;
-            const btn = document.getElementById('pub-btn');
-
-            if(!file || !title || !price) return alert("Заполни данные и выбери фото!");
-
-            btn.disabled = true; btn.innerText = "Загрузка...";
-
-            try {
-                // 1. Грузим фото в Storage
-                const storageRef = storage.ref(`ads/${Date.now()}_${file.name}`);
-                await storageRef.put(file);
-                const imgUrl = await storageRef.getDownloadURL();
-
-                // 2. Пишем данные в Firestore
-                await db.collection('ads').add({
-                    title, price, desc, cat, imgUrl,
-                    userId: currentUser.uid,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-
-                alert("Объявление создано!");
-                location.reload();
-            } catch (e) { alert(e.message); btn.disabled = false; }
-        }
-
-        // ЗАГРУЗКА ЛЕНТЫ
-        db.collection('ads').orderBy('createdAt', 'desc').onSnapshot(snap => {
-            const list = document.getElementById('ads-list');
-            list.innerHTML = "";
-            snap.forEach(doc => {
-                const ad = doc.data();
-                list.innerHTML += `
-                    <div class="card bg-white">
-                        <img src="${ad.imgUrl}" class="w-full h-32 object-cover">
-                        <div class="p-3">
-                            <div class="text-sm font-bold truncate">${ad.title}</div>
-                            <div class="text-lg font-black text-[#00aa61]">${Number(ad.price).toLocaleString()} ₽</div>
-                            <div class="text-[10px] text-gray-400 mt-1 uppercase font-bold">${ad.cat}</div>
-                        </div>
-                    </div>
-                `;
-            });
-        });
-    </script>
 </body>
 </html>
