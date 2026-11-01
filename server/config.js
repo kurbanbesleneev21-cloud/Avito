@@ -32,7 +32,12 @@ const isProd = env.NODE_ENV === 'production' || isVercel;
 const dataDir = isVercel ? '/tmp/codeforge' : path.resolve(ROOT, env.DATA_DIR || 'data');
 fs.mkdirSync(path.join(dataDir, 'uploads'), { recursive: true });
 
+// The Vercel ↔ Supabase integration provides SUPABASE_JWT_SECRET; a key derived from it
+// (with a distinct label) is used when SESSION_SECRET is not set explicitly.
 let sessionSecret = env.SESSION_SECRET;
+if ((!sessionSecret || sessionSecret.length < 32) && env.SUPABASE_JWT_SECRET && env.SUPABASE_JWT_SECRET.length >= 32) {
+  sessionSecret = crypto.createHmac('sha256', env.SUPABASE_JWT_SECRET).update('codeforge-session-v1').digest('hex');
+}
 if (!sessionSecret || sessionSecret.length < 32) {
   if (isProd) {
     // Don't crash the whole site: public pages keep working, admin and order form report a config error.
@@ -59,7 +64,8 @@ module.exports = {
   trustProxy: env.TRUST_PROXY === 'true',
   dataDir,
   uploadDir: path.join(dataDir, 'uploads'),
-  databaseUrl: env.DATABASE_URL || '',
+  // DATABASE_URL, or POSTGRES_URL as created by the Vercel ↔ Supabase integration (transaction pooler)
+  databaseUrl: env.DATABASE_URL || env.POSTGRES_URL || '',
   sessionSecret,
   admin: {
     user: env.ADMIN_USER || 'admin',
@@ -83,7 +89,7 @@ module.exports = {
     sendClientConfirmation: env.MAIL_CLIENT_CONFIRMATION !== 'false',
   },
   supabase: {
-    url: (env.SUPABASE_URL || '').replace(/\/+$/, ''),
+    url: (env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/+$/, ''),
     serviceKey: env.SUPABASE_SERVICE_ROLE_KEY || '',
     privateBucket: env.SUPABASE_PRIVATE_BUCKET || 'order-files',
     publicBucket: env.SUPABASE_PUBLIC_BUCKET || 'site-media',

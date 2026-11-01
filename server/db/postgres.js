@@ -109,13 +109,26 @@ function rowToOrder(row) {
   };
 }
 
+// Query params such as sslmode=require (strict cert check in node-pg) or Supabase's
+// `supa=base-pooler.x` break connections, so they are stripped and SSL is set explicitly.
+function prepareConnection(connectionString) {
+  let u;
+  try { u = new URL(connectionString); } catch { return { url: connectionString, ssl: undefined }; }
+  const mode = (u.searchParams.get('sslmode') || '').toLowerCase();
+  const local = /^(localhost|127\.0\.0\.1|::1|\[::1\])$/.test(u.hostname);
+  const wantSsl = mode ? mode !== 'disable' : !local;
+  u.search = '';
+  return { url: u.toString(), ssl: wantSsl ? { rejectUnauthorized: false } : undefined };
+}
+
 async function createPostgresStore(connectionString) {
-  const needsSsl = /supabase\.(co|com)|sslmode=require/.test(connectionString);
+  const { url, ssl } = prepareConnection(connectionString);
   const pool = new Pool({
-    connectionString,
+    connectionString: url,
     max: process.env.VERCEL ? 3 : 10,
     idleTimeoutMillis: 10_000,
-    ssl: needsSsl ? { rejectUnauthorized: false } : undefined,
+    connectionTimeoutMillis: 10_000,
+    ssl,
   });
   // Serialise schema creation (several serverless instances may cold-start at once).
   // A transaction-scoped lock is safe behind Supabase's transaction-mode pooler.
@@ -303,4 +316,4 @@ async function createPostgresStore(connectionString) {
   };
 }
 
-module.exports = { createPostgresStore };
+module.exports = { createPostgresStore, prepareConnection };

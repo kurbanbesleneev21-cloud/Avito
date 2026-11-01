@@ -55,24 +55,14 @@ Settings → Database → Connection string (URI) → вставьте в `DATAB
 
 Проект готов к Vercel: `vercel.json` раздаёт статику из `public/`, а все страницы и API обслуживает serverless-функция `api/index.js`. На Vercel нет постоянного диска, поэтому заявки хранятся в **Supabase (PostgreSQL)**, а файлы — в **Supabase Storage**.
 
-1. Создайте проект на [supabase.com](https://supabase.com) (бесплатного тарифа достаточно).
-2. В Supabase возьмите:
-   - **Connect → Connection string → Transaction pooler** (порт `6543`) — это `DATABASE_URL`, вставьте пароль базы вместо `[YOUR-PASSWORD]`;
-   - **Project Settings → API**: `Project URL` → `SUPABASE_URL`, ключ `service_role` → `SUPABASE_SERVICE_ROLE_KEY`.
-3. В Vercel: **Project → Settings → Environment Variables** добавьте:
+**Самый простой способ — интеграция Vercel ↔ Supabase** (ключи копировать не нужно):
 
-   | Переменная | Значение |
-   |---|---|
-   | `DATABASE_URL` | строка подключения Supabase |
-   | `SUPABASE_URL` | URL проекта Supabase |
-   | `SUPABASE_SERVICE_ROLE_KEY` | ключ service_role |
-   | `SESSION_SECRET` | случайная строка ≥ 32 символов |
-   | `ADMIN_PASSWORD_HASH` | результат `npm run hash-password` (или временно `ADMIN_PASSWORD`) |
-   | `SITE_URL` | адрес сайта, например `https://ваш-проект.vercel.app` |
-   | `TELEGRAM_BOT_TOKEN`, `SMTP_*` | по желанию, для уведомлений |
+1. Vercel → ваш проект → **Storage** → **Connect Database** (или **Integrations → Supabase**) → выберите существующий проект Supabase или создайте новый → **Connect**. Интеграция сама добавит `POSTGRES_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET` — сайт их понимает.
+2. **Settings → Environment Variables** → добавьте одну переменную `ADMIN_PASSWORD` (пароль входа в админку, потом смените его в «Настройках»). По желанию: `SITE_URL`, `TELEGRAM_BOT_TOKEN`, `SMTP_*`.
+3. **Deployments → ⋯ → Redeploy**.
+4. Откройте `https://ваш-сайт/admin` (логин `admin`).
 
-4. **Deployments → … → Redeploy**, чтобы переменные применились.
-5. Откройте `https://ваш-сайт/admin` и войдите (логин `admin`).
+Вручную (без интеграции) задайте `DATABASE_URL` (Supabase → Connect → Transaction pooler), `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET` (≥ 32 символов) и `ADMIN_PASSWORD_HASH` / `ADMIN_PASSWORD`.
 
 Проверить подключение: `https://ваш-сайт/api/health` — должно быть `"db":"postgres"`, `"storage":"supabase"`, `"sessionSecret":true`.
 
