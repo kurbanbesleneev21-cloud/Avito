@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#050505">
+  <title>Админ-панель — CODEFORGE</title>
+  <link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="/admin/admin.css">
+  <script src="/admin/admin.js" defer></script>
+</head>
+<body class="admin">
+  <!-- Login -->
+  <main class="login" data-view="login" hidden>
+    <form class="login__card glass" data-login novalidate>
+      <a class="logo" href="/" aria-label="CODEFORGE — на сайт">
+        <span class="logo__mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M11 9 4 16l7 7M21 9l7 7-7 7M18 6l-4 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="logo__text">CODEFORGE</span>
+      </a>
+      <h1 class="login__title">Вход в админ-панель</h1>
+      <p class="login__sub">Доступ только для администратора.</p>
+      <div class="field">
+        <label class="field__label" for="l-user">Логин</label>
+        <input class="input" id="l-user" name="username" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label class="field__label" for="l-pass">Пароль</label>
+        <input class="input" id="l-pass" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <p class="field__error" data-login-error role="alert"></p>
+      <button class="btn btn--primary btn--block" type="submit"><span class="btn__label">Войти</span><span class="btn__spinner" aria-hidden="true"></span></button>
+    </form>
+  </main>
+
+  <!-- App -->
+  <div class="app" data-view="app" hidden>
+    <aside class="sidebar">
+      <a class="logo" href="#/orders" aria-label="CODEFORGE — заявки">
+        <span class="logo__mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M11 9 4 16l7 7M21 9l7 7-7 7M18 6l-4 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="logo__text">CODEFORGE</span>
+      </a>
+      <nav class="sidebar__nav" aria-label="Админ-навигация">
+        <a href="#/orders" class="is-active"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="14" height="14" rx="2"/><path d="M7 7h6M7 10h6M7 13h4"/></svg>Заявки</a>
+        <a href="/api/admin/export.csv" data-export><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10m-4-4 4 4 4-4M4 16h12"/></svg>Экспорт CSV</a>
+        <a href="/" target="_blank" rel="noopener"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8 4H4v12h12v-4M11 3h6v6M17 3l-8 8"/></svg>Открыть сайт</a>
+      </nav>
+      <div class="sidebar__foot">
+        <span class="sidebar__user" data-user></span>
+        <button type="button" class="btn btn--ghost btn--sm" data-logout><span>Выйти</span></button>
+      </div>
+    </aside>
+
+    <main class="workspace" id="main">
+      <!-- List -->
+      <section data-page="list">
+        <header class="ws-head">
+          <div>
+            <p class="eyebrow">Панель управления</p>
+            <h1 class="ws-title">Заявки</h1>
+          </div>
+          <button type="button" class="btn btn--ghost btn--sm" data-refresh><span>Обновить</span></button>
+        </header>
+
+        <div class="kpis" data-kpis>
+          <div class="kpi"><span class="kpi__label">Всего заявок</span><b class="kpi__value" data-kpi="total">—</b><span class="kpi__hint" data-kpi="lastWeek"></span></div>
+          <button type="button" class="kpi kpi--btn" data-filter-status="new"><span class="kpi__label">Новые</span><b class="kpi__value" data-kpi="new">—</b><span class="kpi__hint">требуют ответа</span></button>
+          <button type="button" class="kpi kpi--btn" data-filter-status="in_progress"><span class="kpi__label">В работе</span><b class="kpi__value" data-kpi="in_progress">—</b><span class="kpi__hint">активные проекты</span></button>
+          <button type="button" class="kpi kpi--btn" data-filter-status="done"><span class="kpi__label">Завершённые</span><b class="kpi__value" data-kpi="done">—</b><span class="kpi__hint">сданные проекты</span></button>
+        </div>
+
+        <form class="toolbar" data-filters role="search">
+          <div class="toolbar__search">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="6"/><path d="m14 14 4 4"/></svg>
+            <label class="sr-only" for="q">Поиск</label>
+            <input class="input" id="q" name="q" type="search" placeholder="Поиск: номер, имя, email, телефон, проект…" autocomplete="off">
+          </div>
+          <label class="sr-only" for="f-status">Статус</label>
+          <select class="input select" id="f-status" name="status"><option value="">Все статусы</option></select>
+          <label class="sr-only" for="f-service">Услуга</label>
+          <select class="input select" id="f-service" name="service"><option value="">Все услуги</option></select>
+          <label class="sr-only" for="f-budget">Бюджет</label>
+          <select class="input select" id="f-budget" name="budget"><option value="">Любой бюджет</option></select>
+          <label class="sr-only" for="f-sort">Сортировка</label>
+          <select class="input select" id="f-sort" name="sort"><option value="newest">Сначала новые</option><option value="oldest">Сначала старые</option></select>
+          <button type="reset" class="btn btn--ghost btn--sm" data-reset><span>Сбросить</span></button>
+        </form>
+
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr><th scope="col">Номер</th><th scope="col">Дата</th><th scope="col">Клиент</th><th scope="col">Проект</th><th scope="col">Услуги</th><th scope="col">Бюджет</th><th scope="col">Статус</th></tr>
+            </thead>
+            <tbody data-rows></tbody>
+          </table>
+          <p class="empty" data-empty hidden>Заявок не найдено.</p>
+        </div>
+        <nav class="pager" data-pager aria-label="Страницы"></nav>
+      </section>
+
+      <!-- Detail -->
+      <section data-page="detail" hidden>
+        <a class="back-link" href="#/orders"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16 10H5m4-5-5 5 5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Все заявки</a>
+        <div data-detail></div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" data-toast role="status" aria-live="polite" hidden></div>
+</body>
+</html>
