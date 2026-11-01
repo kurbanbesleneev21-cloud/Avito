@@ -4,7 +4,13 @@ const crypto = require('node:crypto');
 const config = require('./config');
 
 const b64url = (buf) => Buffer.from(buf).toString('base64url');
-const hmac = (data) => crypto.createHmac('sha256', config.sessionSecret).update(data).digest('base64url');
+function secret() {
+  if (!config.sessionSecret) {
+    throw Object.assign(new Error('Сервер не настроен: задайте переменную SESSION_SECRET (минимум 32 символа).'), { status: 503, expose: true });
+  }
+  return config.sessionSecret;
+}
+const hmac = (data) => crypto.createHmac('sha256', secret()).update(data).digest('base64url');
 
 function safeEqual(a, b) {
   const ab = Buffer.from(String(a));
@@ -90,16 +96,18 @@ function verifyPassword(password, stored) {
   return crypto.timingSafeEqual(actual, expected);
 }
 
-function checkAdminCredentials(user, password) {
+// A password set from the admin panel (stored hashed in the DB) takes precedence over env vars.
+function checkAdminCredentials(user, password, dbHash) {
   const { admin } = config;
   const userOk = safeEqual(String(user || ''), admin.user);
   let passOk = false;
-  if (admin.passwordHash) passOk = verifyPassword(password || '', admin.passwordHash);
+  if (dbHash) passOk = verifyPassword(password || '', dbHash);
+  else if (admin.passwordHash) passOk = verifyPassword(password || '', admin.passwordHash);
   else if (admin.password) passOk = safeEqual(String(password || ''), admin.password);
   return userOk && passOk;
 }
 
-const adminConfigured = () => Boolean(config.admin.passwordHash || config.admin.password);
+const adminConfigured = (dbHash) => Boolean(dbHash || config.admin.passwordHash || config.admin.password);
 
 /* ---------- Admin session (signed, httpOnly cookie) ---------- */
 
@@ -109,7 +117,8 @@ const revoked = new Map(); // sid -> expiry; logout revokes immediately
 
 function createSession(user) {
   const sid = b64url(crypto.randomBytes(18));
-  const payload = b64url(JSON.stringify({ u: user, sid, exp: Date.now() + SESSION_TTL_MS }));
+  const now = Date.now();
+  const payload = b64url(JSON.stringify({ u: user, sid, iat: now, exp: now + SESSION_TTL_MS }));
   return `${payload}.${hmac(`session:${payload}`)}`;
 }
 
@@ -147,7 +156,7 @@ function sessionCookie(value, maxAgeMs) {
   return attrs.join('; ');
 }
 
-const ipHash = (ip) => crypto.createHash('sha256').update(`${config.sessionSecret}:${ip}`).digest('hex').slice(0, 32);
+const ipHash = (ip) => crypto.createHash('sha256').update(`${secret()}:${ip}`).digest('hex').slice(0, 32);
 
 /* ---------- Unique human-friendly order number: CF-YYMMDD-XXXXX ---------- */
 

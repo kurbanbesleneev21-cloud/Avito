@@ -1,10 +1,10 @@
 'use strict';
 
-const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const multer = require('multer');
 const config = require('./config');
+const { storage } = require('./storage');
 
 // Allow-list: extension -> { mime, magic check }. SVG/HTML deliberately excluded (script injection).
 const startsWith = (buf, bytes, offset = 0) => bytes.every((b, i) => buf[offset + i] === b);
@@ -59,6 +59,10 @@ function sanitizeOriginalName(name) {
 
 // Validate content signatures and persist under random names outside the web root.
 async function persistFiles(files = []) {
+  const total = files.reduce((n, f) => n + f.size, 0);
+  if (total > config.uploads.maxTotal) {
+    throw new UploadError(`Общий размер файлов больше ${Math.round(config.uploads.maxTotal / 1048576)} МБ`);
+  }
   const prepared = [];
   for (const file of files) {
     const ext = path.extname(file.originalname).toLowerCase();
@@ -77,7 +81,7 @@ async function persistFiles(files = []) {
   const written = [];
   try {
     for (const f of prepared) {
-      await fs.writeFile(path.join(config.uploadDir, f.storedName), f.buffer, { flag: 'wx', mode: 0o600 });
+      await storage.put('private', f.storedName, f.buffer, f.mime);
       written.push(f.storedName);
     }
   } catch (err) {
@@ -88,13 +92,31 @@ async function persistFiles(files = []) {
 }
 
 async function removeFiles(storedNames) {
-  await Promise.all(storedNames.map((n) => fs.unlink(path.join(config.uploadDir, n)).catch(() => {})));
+  await Promise.all(storedNames.map((n) => storage.remove('private', n)));
 }
 
-function resolveStoredPath(storedName) {
-  // storedName comes from DB, but still guard against traversal.
-  if (!/^[0-9a-f-]{36}\.[a-z]{3,4}$/.test(storedName)) return null;
-  return path.join(config.uploadDir, storedName);
+const readStoredFile = (storedName) => storage.get('private', storedName);
+
+/* ---------- Site images (admin media library) ---------- */
+const IMAGE_EXT = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+const imageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { files: 1, fileSize: config.uploads.maxFileSize, fields: 5 },
+  fileFilter(req, file, cb) {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    if (!IMAGE_EXT.includes(ext)) return cb(new UploadError('Можно загружать только изображения JPG, PNG, WEBP или GIF'));
+    cb(null, true);
+  },
+});
+
+async function persistImage(file) {
+  if (!file) throw new UploadError('Выберите файл');
+  const ext = path.extname(file.originalname).toLowerCase();
+  const type = TYPES[ext];
+  if (!type || !type.check(file.buffer)) throw new UploadError('Файл повреждён или не является изображением');
+  const p = `${new Date().toISOString().slice(0, 7)}/${crypto.randomUUID()}${ext === '.jpeg' ? '.jpg' : ext}`;
+  const saved = await storage.put('public', p, file.buffer, type.mime);
+  return { path: saved.path, url: saved.url, originalName: sanitizeOriginalName(file.originalname), mime: type.mime, size: file.size };
 }
 
-module.exports = { upload, persistFiles, removeFiles, resolveStoredPath, UploadError, ALLOWED_EXTENSIONS };
+module.exports = { upload, imageUpload, persistFiles, persistImage, removeFiles, readStoredFile, UploadError, ALLOWED_EXTENSIONS };

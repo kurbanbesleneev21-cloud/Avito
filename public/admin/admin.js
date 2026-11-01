@@ -246,15 +246,33 @@
   }
 
   /* ---------- Router ---------- */
+  let lastHash = location.hash;
   function route() {
-    const m = location.hash.match(/^#\/orders\/(\d+)/);
-    $('[data-page="list"]').hidden = !!m;
+    const h = location.hash || '#/orders';
+    const m = h.match(/^#\/orders\/(\d+)/);
+    const cms = /^#\/(content|projects|media|settings)/.test(h);
+    $('[data-page="list"]').hidden = !!m || cms;
     $('[data-page="detail"]').hidden = !m;
-    if (m) loadDetail(m[1]);
+    $('[data-page="cms"]').hidden = !cms;
+    $$('.sidebar__nav a[data-nav]').forEach((a) => a.classList.toggle('is-active', h.startsWith(a.getAttribute('href').split('/').slice(0, 2).join('/'))));
+    if (cms) window.CMS.render(h);
+    else if (m) loadDetail(m[1]);
     else { loadStats(); loadList(); }
     scrollTo(0, 0);
+    lastHash = location.hash;
   }
-  addEventListener('hashchange', () => { if (!appView.hidden) route(); });
+  addEventListener('hashchange', () => {
+    if (appView.hidden) return;
+    if (window.CMS && window.CMS.isDirty() && !confirm('Есть несохранённые изменения. Уйти без сохранения?')) {
+      history.replaceState(null, '', lastHash || '#/content');
+      return;
+    }
+    if (window.CMS) window.CMS.discard();
+    route();
+  });
+  addEventListener('beforeunload', (e) => { if (window.CMS && window.CMS.hasUnsaved()) { e.preventDefault(); e.returnValue = ''; } });
+
+  window.ADMIN = { api, toast, fail, esc, fmtDate, fmtSize, meta: () => META };
 
   /* ---------- Boot ---------- */
   api('/me').then((me) => showApp(me.user)).catch((err) => { if (!err.silent) showLogin(); });

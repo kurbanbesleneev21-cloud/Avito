@@ -51,6 +51,37 @@ CREATE TABLE IF NOT EXISTS order_history (
   changed_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_history_order ON order_history(order_id);
+
+CREATE TABLE IF NOT EXISTS kv (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS content_versions (
+  id         BIGSERIAL PRIMARY KEY,
+  data       TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS media (
+  id            BIGSERIAL PRIMARY KEY,
+  path          TEXT NOT NULL UNIQUE,
+  url           TEXT NOT NULL,
+  original_name TEXT NOT NULL,
+  mime          TEXT NOT NULL,
+  size          INTEGER NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS events (
+  id   BIGSERIAL PRIMARY KEY,
+  kind TEXT NOT NULL,
+  key  TEXT NOT NULL,
+  at   BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_events ON events(kind, key, at);
+CREATE TABLE IF NOT EXISTS used_tokens (
+  nonce TEXT PRIMARY KEY,
+  at    BIGINT NOT NULL
+);
 `;
 
 const ORDER_COLUMNS = [
@@ -82,10 +113,24 @@ async function createPostgresStore(connectionString) {
   const needsSsl = /supabase\.(co|com)|sslmode=require/.test(connectionString);
   const pool = new Pool({
     connectionString,
-    max: 10,
+    max: process.env.VERCEL ? 3 : 10,
+    idleTimeoutMillis: 10_000,
     ssl: needsSsl ? { rejectUnauthorized: false } : undefined,
   });
-  await pool.query(SCHEMA);
+  // Serialise schema creation (several serverless instances may cold-start at once).
+  // A transaction-scoped lock is safe behind Supabase's transaction-mode pooler.
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(7240117)');
+    await client.query(SCHEMA);
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
 
   function buildWhere({ q, status, service, budget }) {
     const clauses = [];
@@ -198,6 +243,61 @@ async function createPostgresStore(connectionString) {
       const week = await pool.query("SELECT COUNT(*)::int AS n FROM orders WHERE created_at >= now() - interval '7 days'");
       return { byStatus: Object.fromEntries(rows.map((r) => [r.status, r.n])), lastWeek: week.rows[0].n };
     },
+
+    async getKv(key) {
+      const { rows } = await pool.query('SELECT value FROM kv WHERE key = $1', [key]);
+      return rows[0] ? rows[0].value : null;
+    },
+    async setKv(key, value) {
+      await pool.query('INSERT INTO kv (key, value, updated_at) VALUES ($1, $2, now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()', [key, value]);
+    },
+
+    async addContentVersion(data) {
+      await pool.query('INSERT INTO content_versions (data) VALUES ($1)', [data]);
+      await pool.query('DELETE FROM content_versions WHERE id NOT IN (SELECT id FROM content_versions ORDER BY id DESC LIMIT 30)');
+    },
+    async listContentVersions() {
+      const { rows } = await pool.query('SELECT id, created_at, length(data) AS size FROM content_versions ORDER BY id DESC');
+      return rows.map((r) => ({ id: Number(r.id), created_at: iso(r.created_at), size: Number(r.size) }));
+    },
+    async getContentVersion(id) {
+      const { rows } = await pool.query('SELECT data FROM content_versions WHERE id = $1', [id]);
+      return rows[0] ? rows[0].data : null;
+    },
+
+    async addMedia(m) {
+      const { rows } = await pool.query(
+        'INSERT INTO media (path, url, original_name, mime, size) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+        [m.path, m.url, m.originalName, m.mime, m.size]
+      );
+      return { ...rows[0], id: Number(rows[0].id), created_at: iso(rows[0].created_at) };
+    },
+    async listMedia() {
+      const { rows } = await pool.query('SELECT * FROM media ORDER BY id DESC LIMIT 500');
+      return rows.map((r) => ({ ...r, id: Number(r.id), created_at: iso(r.created_at) }));
+    },
+    async getMedia(id) {
+      const { rows } = await pool.query('SELECT * FROM media WHERE id = $1', [id]);
+      return rows[0] ? { ...rows[0], id: Number(rows[0].id), created_at: iso(rows[0].created_at) } : null;
+    },
+    async deleteMedia(id) { await pool.query('DELETE FROM media WHERE id = $1', [id]); },
+
+    async addEvent(kind, key) {
+      await pool.query('INSERT INTO events (kind, key, at) VALUES ($1, $2, $3)', [kind, key, Date.now()]);
+      if (Math.random() < 0.02) await pool.query('DELETE FROM events WHERE at < $1', [Date.now() - 2 * 864e5]);
+    },
+    async countEvents(kind, key, sinceMs) {
+      const { rows } = await pool.query('SELECT COUNT(*)::int AS n FROM events WHERE kind = $1 AND key = $2 AND at >= $3', [kind, key, Date.now() - sinceMs]);
+      return rows[0].n;
+    },
+    async clearEvents(kind, key) { await pool.query('DELETE FROM events WHERE kind = $1 AND key = $2', [kind, key]); },
+
+    async consumeToken(nonce) {
+      const { rowCount } = await pool.query('INSERT INTO used_tokens (nonce, at) VALUES ($1, $2) ON CONFLICT DO NOTHING', [nonce, Date.now()]);
+      if (Math.random() < 0.02) await pool.query('DELETE FROM used_tokens WHERE at < $1', [Date.now() - 864e5]);
+      return rowCount === 1;
+    },
+    async releaseToken(nonce) { await pool.query('DELETE FROM used_tokens WHERE nonce = $1', [nonce]); },
 
     async close() { await pool.end(); },
   };

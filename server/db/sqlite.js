@@ -49,6 +49,37 @@ CREATE TABLE IF NOT EXISTS order_history (
   changed_at  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_history_order ON order_history(order_id);
+
+CREATE TABLE IF NOT EXISTS kv (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS content_versions (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  data       TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS media (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  path          TEXT NOT NULL UNIQUE,
+  url           TEXT NOT NULL,
+  original_name TEXT NOT NULL,
+  mime          TEXT NOT NULL,
+  size          INTEGER NOT NULL,
+  created_at    TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS events (
+  id    INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind  TEXT NOT NULL,
+  key   TEXT NOT NULL,
+  at    INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_events ON events(kind, key, at);
+CREATE TABLE IF NOT EXISTS used_tokens (
+  nonce TEXT PRIMARY KEY,
+  at    INTEGER NOT NULL
+);
 `;
 
 const ORDER_COLUMNS = [
@@ -181,6 +212,63 @@ function createSqliteStore(dataDir) {
       const lastWeek = db.prepare('SELECT COUNT(*) AS n FROM orders WHERE created_at >= ?').get(since).n;
       return { byStatus, lastWeek: Number(lastWeek) };
     },
+
+    /* ---- key/value (site content, admin password) ---- */
+    async getKv(key) {
+      const row = db.prepare('SELECT value FROM kv WHERE key = ?').get(key);
+      return row ? row.value : null;
+    },
+    async setKv(key, value) {
+      db.prepare('INSERT INTO kv (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at')
+        .run(key, value, new Date().toISOString());
+    },
+
+    /* ---- content versions (keep the last 30) ---- */
+    async addContentVersion(data) {
+      db.prepare('INSERT INTO content_versions (data, created_at) VALUES (?, ?)').run(data, new Date().toISOString());
+      db.prepare('DELETE FROM content_versions WHERE id NOT IN (SELECT id FROM content_versions ORDER BY id DESC LIMIT 30)').run();
+    },
+    async listContentVersions() {
+      return db.prepare('SELECT id, created_at, length(data) AS size FROM content_versions ORDER BY id DESC').all().map((r) => ({ ...r, id: Number(r.id) }));
+    },
+    async getContentVersion(id) {
+      const row = db.prepare('SELECT data FROM content_versions WHERE id = ?').get(id);
+      return row ? row.data : null;
+    },
+
+    /* ---- media library ---- */
+    async addMedia(m) {
+      const now = new Date().toISOString();
+      const { lastInsertRowid } = db.prepare('INSERT INTO media (path, url, original_name, mime, size, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(m.path, m.url, m.originalName, m.mime, m.size, now);
+      return { id: Number(lastInsertRowid), path: m.path, url: m.url, original_name: m.originalName, mime: m.mime, size: m.size, created_at: now };
+    },
+    async listMedia() {
+      return db.prepare('SELECT * FROM media ORDER BY id DESC LIMIT 500').all().map((r) => ({ ...r, id: Number(r.id) }));
+    },
+    async getMedia(id) {
+      const r = db.prepare('SELECT * FROM media WHERE id = ?').get(id);
+      return r ? { ...r, id: Number(r.id) } : null;
+    },
+    async deleteMedia(id) { db.prepare('DELETE FROM media WHERE id = ?').run(id); },
+
+    /* ---- events for rate limits / session revocation (shared across instances) ---- */
+    async addEvent(kind, key) {
+      db.prepare('INSERT INTO events (kind, key, at) VALUES (?, ?, ?)').run(kind, key, Date.now());
+      if (Math.random() < 0.02) db.prepare('DELETE FROM events WHERE at < ?').run(Date.now() - 2 * 864e5);
+    },
+    async countEvents(kind, key, sinceMs) {
+      return Number(db.prepare('SELECT COUNT(*) AS n FROM events WHERE kind = ? AND key = ? AND at >= ?').get(kind, key, Date.now() - sinceMs).n);
+    },
+    async clearEvents(kind, key) { db.prepare('DELETE FROM events WHERE kind = ? AND key = ?').run(kind, key); },
+
+    /* ---- single-use form tokens ---- */
+    async consumeToken(nonce) {
+      const r = db.prepare('INSERT OR IGNORE INTO used_tokens (nonce, at) VALUES (?, ?)').run(nonce, Date.now());
+      if (Math.random() < 0.02) db.prepare('DELETE FROM used_tokens WHERE at < ?').run(Date.now() - 864e5);
+      return r.changes === 1;
+    },
+    async releaseToken(nonce) { db.prepare('DELETE FROM used_tokens WHERE nonce = ?').run(nonce); },
 
     async close() { db.close(); },
   };

@@ -1,0 +1,237 @@
+        <div class="order glass" data-reveal>
+          <ol class="stepper" aria-label="Этапы оформления заявки">
+            <li><button type="button" class="stepper__btn" data-goto="1" aria-current="step"><span class="stepper__num">1</span><span class="stepper__label">Услуга</span></button></li>
+            <li><button type="button" class="stepper__btn" data-goto="2" disabled><span class="stepper__num">2</span><span class="stepper__label">Проект</span></button></li>
+            <li><button type="button" class="stepper__btn" data-goto="3" disabled><span class="stepper__num">3</span><span class="stepper__label">Бюджет</span></button></li>
+            <li><button type="button" class="stepper__btn" data-goto="4" disabled><span class="stepper__num">4</span><span class="stepper__label">Контакты</span></button></li>
+            <li><button type="button" class="stepper__btn" data-goto="5" disabled><span class="stepper__num">5</span><span class="stepper__label">Проверка</span></button></li>
+          </ol>
+          <div class="order__progress" aria-hidden="true"><span></span></div>
+
+          <form class="order__form" id="order-form" novalidate>
+            <div class="hp" aria-hidden="true">
+              <label>Сайт компании <input type="text" name="company_site" tabindex="-1" autocomplete="off"></label>
+            </div>
+
+            <!-- STEP 1 -->
+            <fieldset class="panel" data-step="1">
+              <legend class="panel__title"><span>Этап 1 из 5</span>Какие услуги вас интересуют?</legend>
+              <p class="panel__hint">Можно выбрать несколько направлений.</p>
+              <div class="choice-grid choice-grid--services" role="group" aria-describedby="err-services">
+                <label class="choice">
+                  <input type="checkbox" name="services" value="website">
+                  <span class="choice__box">
+                    <svg class="choice__icon" viewBox="0 0 48 48" aria-hidden="true"><rect x="5" y="8" width="38" height="26" rx="3"/><path d="M17 42h14M24 34v8"/></svg>
+                    <span class="choice__label">Разработка сайта</span>
+                    <span class="choice__check" aria-hidden="true"></span>
+                  </span>
+                </label>
+                <label class="choice">
+                  <input type="checkbox" name="services" value="android">
+                  <span class="choice__box">
+                    <svg class="choice__icon" viewBox="0 0 48 48" aria-hidden="true"><rect x="13" y="4" width="22" height="40" rx="4"/><path d="M21 39h6M18 22a6 6 0 0 1 12 0v4H18z"/></svg>
+                    <span class="choice__label">Android-приложение</span>
+                    <span class="choice__check" aria-hidden="true"></span>
+                  </span>
+                </label>
+                <label class="choice">
+                  <input type="checkbox" name="services" value="ios">
+                  <span class="choice__box">
+                    <svg class="choice__icon" viewBox="0 0 48 48" aria-hidden="true"><rect x="13" y="4" width="22" height="40" rx="6"/><path d="M21 8h6"/></svg>
+                    <span class="choice__label">iOS-приложение</span>
+                    <span class="choice__check" aria-hidden="true"></span>
+                  </span>
+                </label>
+                <label class="choice">
+                  <input type="checkbox" name="services" value="webapp">
+                  <span class="choice__box">
+                    <svg class="choice__icon" viewBox="0 0 48 48" aria-hidden="true"><rect x="4" y="8" width="40" height="32" rx="3"/><path d="M4 15h40M10 22h12v12H10zM26 22h12M26 28h12"/></svg>
+                    <span class="choice__label">Веб-приложение</span>
+                    <span class="choice__check" aria-hidden="true"></span>
+                  </span>
+                </label>
+                <label class="choice">
+                  <input type="checkbox" name="services" value="ecommerce">
+                  <span class="choice__box">
+                    <svg class="choice__icon" viewBox="0 0 48 48" aria-hidden="true"><path d="M4 8h6l5 22h22l4-15H13"/><circle cx="18" cy="38" r="3"/><circle cx="34" cy="38" r="3"/></svg>
+                    <span class="choice__label">Интернет-магазин</span>
+                    <span class="choice__check" aria-hidden="true"></span>
+                  </span>
+                </label>
+                <label class="choice">
+                  <input type="checkbox" name="services" value="crm">
+                  <span class="choice__box">
+                    <svg class="choice__icon" viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="6" width="36" height="36" rx="4"/><path d="M6 16h36M16 16v26M22 24h14M22 30h10M22 36h12"/></svg>
+                    <span class="choice__label">CRM-система</span>
+                    <span class="choice__check" aria-hidden="true"></span>
+                  </span>
+                </label>
+                <label class="choice">
+                  <input type="checkbox" name="services" value="other">
+                  <span class="choice__box">
+                    <svg class="choice__icon" viewBox="0 0 48 48" aria-hidden="true"><path d="M16 14 6 24l10 10M32 14l10 10-10 10M27 9 21 39"/></svg>
+                    <span class="choice__label">Другое</span>
+                    <span class="choice__check" aria-hidden="true"></span>
+                  </span>
+                </label>
+              </div>
+              <p class="field__error" id="err-services" data-error="services" role="alert"></p>
+            </fieldset>
+
+            <!-- STEP 2 -->
+            <fieldset class="panel" data-step="2" hidden>
+              <legend class="panel__title"><span>Этап 2 из 5</span>Информация о проекте</legend>
+              <div class="fields">
+                <div class="field">
+                  <label class="field__label" for="f-project">Название проекта <em>*</em></label>
+                  <input class="input" id="f-project" name="project_name" type="text" maxlength="120" required autocomplete="off" placeholder="Например: сервис онлайн-записи для салонов" aria-describedby="err-project_name">
+                  <p class="field__error" id="err-project_name" data-error="project_name"></p>
+                </div>
+                <div class="field">
+                  <label class="field__label" for="f-description">Краткое описание идеи <em>*</em></label>
+                  <textarea class="input input--area" id="f-description" name="description" rows="4" maxlength="3000" required placeholder="Какую задачу решает продукт, для кого он и чем отличается от аналогов" aria-describedby="err-description cnt-description"></textarea>
+                  <div class="field__meta"><p class="field__error" id="err-description" data-error="description"></p><span class="field__counter" id="cnt-description" data-counter-for="f-description">0 / 3000</span></div>
+                </div>
+                <div class="field">
+                  <label class="field__label" for="f-features">Какие функции должны быть реализованы?</label>
+                  <textarea class="input input--area" id="f-features" name="features" rows="3" maxlength="3000" placeholder="Регистрация, личный кабинет, онлайн-оплата, push-уведомления, интеграция с 1С…" aria-describedby="err-features"></textarea>
+                  <p class="field__error" id="err-features" data-error="features"></p>
+                </div>
+                <div class="field">
+                  <label class="field__label" for="f-references">Есть ли примеры сайтов или приложений, которые нравятся?</label>
+                  <textarea class="input input--area" id="f-references" name="references_text" rows="2" maxlength="1500" placeholder="Ссылки и что именно в них нравится" aria-describedby="err-references_text"></textarea>
+                  <p class="field__error" id="err-references_text" data-error="references_text"></p>
+                </div>
+                <div class="field" role="radiogroup" aria-labelledby="lbl-deadline" aria-describedby="err-deadline">
+                  <span class="field__label" id="lbl-deadline">Желаемые сроки разработки <em>*</em></span>
+                  <div class="chips">
+                    <label class="chip"><input type="radio" name="deadline" value="asap"><span>Как можно скорее</span></label>
+                    <label class="chip"><input type="radio" name="deadline" value="1m"><span>До 1 месяца</span></label>
+                    <label class="chip"><input type="radio" name="deadline" value="1-3m"><span>1–3 месяца</span></label>
+                    <label class="chip"><input type="radio" name="deadline" value="3-6m"><span>3–6 месяцев</span></label>
+                    <label class="chip"><input type="radio" name="deadline" value="flexible"><span>Сроки гибкие</span></label>
+                  </div>
+                  <p class="field__error" id="err-deadline" data-error="deadline"></p>
+                </div>
+                <div class="field">
+                  <span class="field__label" id="lbl-files">Файлы и изображения</span>
+                  <div class="dropzone" data-dropzone>
+                    <input class="dropzone__input" id="f-files" type="file" name="files" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.docx,.xlsx,.pptx,.txt" aria-labelledby="lbl-files" aria-describedby="dz-hint err-files">
+                    <label class="dropzone__area" for="f-files">
+                      <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 32V12m-8 8 8-8 8 8M10 34v4h28v-4"/></svg>
+                      <span><b>Перетащите файлы</b> или нажмите, чтобы выбрать</span>
+                      <small id="dz-hint">ТЗ, макеты, скриншоты: JPG, PNG, WEBP, GIF, PDF, DOCX, XLSX, PPTX, TXT · до {{MAX_FILES}} файлов, всего до {{MAX_MB}} МБ</small>
+                    </label>
+                    <ul class="file-list" data-file-list></ul>
+                  </div>
+                  <p class="field__error" id="err-files" data-error="files"></p>
+                </div>
+              </div>
+            </fieldset>
+
+            <!-- STEP 3 -->
+            <fieldset class="panel" data-step="3" hidden>
+              <legend class="panel__title"><span>Этап 3 из 5</span>Планируемый бюджет</legend>
+              <p class="panel__hint">Это поможет предложить оптимальное решение. Бюджет ни к чему не обязывает.</p>
+              <div class="choice-grid choice-grid--budget" role="radiogroup" aria-label="Бюджет" aria-describedby="err-budget">
+                <label class="choice choice--budget"><input type="radio" name="budget" value="lt-500"><span class="choice__box"><span class="choice__amount">до 500 €</span><span class="choice__note">Лендинг, визитка</span><span class="choice__check" aria-hidden="true"></span></span></label>
+                <label class="choice choice--budget"><input type="radio" name="budget" value="500-1000"><span class="choice__box"><span class="choice__amount">500–1 000 €</span><span class="choice__note">Сайт компании</span><span class="choice__check" aria-hidden="true"></span></span></label>
+                <label class="choice choice--budget"><input type="radio" name="budget" value="1000-3000"><span class="choice__box"><span class="choice__amount">1 000–3 000 €</span><span class="choice__note">Магазин, MVP</span><span class="choice__check" aria-hidden="true"></span></span></label>
+                <label class="choice choice--budget"><input type="radio" name="budget" value="3000-5000"><span class="choice__box"><span class="choice__amount">3 000–5 000 €</span><span class="choice__note">Мобильное приложение</span><span class="choice__check" aria-hidden="true"></span></span></label>
+                <label class="choice choice--budget"><input type="radio" name="budget" value="5000-10000"><span class="choice__box"><span class="choice__amount">5 000–10 000 €</span><span class="choice__note">Веб-сервис, CRM</span><span class="choice__check" aria-hidden="true"></span></span></label>
+                <label class="choice choice--budget"><input type="radio" name="budget" value="gt-10000"><span class="choice__box"><span class="choice__amount">более 10 000 €</span><span class="choice__note">Сложная платформа</span><span class="choice__check" aria-hidden="true"></span></span></label>
+                <label class="choice choice--budget choice--wide"><input type="radio" name="budget" value="undecided"><span class="choice__box"><span class="choice__amount">Пока не определился</span><span class="choice__note">Поможем оценить</span><span class="choice__check" aria-hidden="true"></span></span></label>
+              </div>
+              <p class="field__error" id="err-budget" data-error="budget" role="alert"></p>
+            </fieldset>
+
+            <!-- STEP 4 -->
+            <fieldset class="panel" data-step="4" hidden>
+              <legend class="panel__title"><span>Этап 4 из 5</span>Контактные данные</legend>
+              <div class="fields fields--2">
+                <div class="field">
+                  <label class="field__label" for="f-name">Имя <em>*</em></label>
+                  <input class="input" id="f-name" name="name" type="text" maxlength="80" required autocomplete="name" placeholder="Как к вам обращаться" aria-describedby="err-name">
+                  <p class="field__error" id="err-name" data-error="name"></p>
+                </div>
+                <div class="field">
+                  <label class="field__label" for="f-email">Электронная почта <em>*</em></label>
+                  <input class="input" id="f-email" name="email" type="email" maxlength="254" required autocomplete="email" inputmode="email" placeholder="you@company.com" aria-describedby="err-email">
+                  <p class="field__error" id="err-email" data-error="email"></p>
+                </div>
+                <div class="field">
+                  <label class="field__label" for="f-phone">Номер телефона <em>*</em></label>
+                  <input class="input" id="f-phone" name="phone" type="tel" maxlength="20" required autocomplete="tel" inputmode="tel" placeholder="+49 151 234 56 78" aria-describedby="err-phone">
+                  <p class="field__error" id="err-phone" data-error="phone"></p>
+                </div>
+                <div class="field">
+                  <label class="field__label" for="f-telegram">Telegram <span class="field__opt">необязательно</span></label>
+                  <div class="input-prefix"><span aria-hidden="true">@</span><input class="input" id="f-telegram" name="telegram" type="text" maxlength="40" autocomplete="off" placeholder="username" aria-describedby="err-telegram"></div>
+                  <p class="field__error" id="err-telegram" data-error="telegram"></p>
+                </div>
+                <div class="field field--full" role="radiogroup" aria-labelledby="lbl-contact" aria-describedby="err-contact_method">
+                  <span class="field__label" id="lbl-contact">Предпочтительный способ связи <em>*</em></span>
+                  <div class="chips">
+                    <label class="chip"><input type="radio" name="contact_method" value="email"><span>Электронная почта</span></label>
+                    <label class="chip"><input type="radio" name="contact_method" value="phone"><span>Телефонный звонок</span></label>
+                    <label class="chip"><input type="radio" name="contact_method" value="telegram"><span>Telegram</span></label>
+                    <label class="chip"><input type="radio" name="contact_method" value="whatsapp"><span>WhatsApp</span></label>
+                  </div>
+                  <p class="field__error" id="err-contact_method" data-error="contact_method"></p>
+                </div>
+                <div class="field field--full">
+                  <label class="checkbox">
+                    <input type="checkbox" name="consent" value="true" aria-describedby="err-consent">
+                    <span class="checkbox__box" aria-hidden="true"></span>
+                    <span>Я согласен на обработку персональных данных в соответствии с <a href="/privacy" target="_blank" rel="noopener">политикой конфиденциальности</a></span>
+                  </label>
+                  <p class="field__error" id="err-consent" data-error="consent"></p>
+                </div>
+              </div>
+            </fieldset>
+
+            <!-- STEP 5 -->
+            <fieldset class="panel" data-step="5" hidden>
+              <legend class="panel__title"><span>Этап 5 из 5</span>Проверьте заявку</legend>
+              <div class="summary" data-summary></div>
+            </fieldset>
+
+            <div class="form-alert" data-form-alert role="alert" hidden></div>
+
+            <div class="order__nav" data-order-nav>
+              <button type="button" class="btn btn--ghost" data-prev hidden>
+                <svg class="btn__arrow btn__arrow--back" viewBox="0 0 20 20" aria-hidden="true"><path d="M16 10H5m4-5-5 5 5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span>Назад</span>
+              </button>
+              <span class="order__autosave" data-autosave aria-live="polite"></span>
+              <button type="button" class="btn btn--primary" data-next>
+                <span>Далее</span>
+                <svg class="btn__arrow" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11m-4-5 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <button type="submit" class="btn btn--primary btn--submit" data-submit hidden>
+                <span class="btn__label">Отправить заявку</span>
+                <span class="btn__spinner" aria-hidden="true"></span>
+                <svg class="btn__arrow" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11m-4-5 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+          </form>
+
+          <div class="success" data-success hidden tabindex="-1" aria-live="polite">
+            <svg class="success__check" viewBox="0 0 120 120" aria-hidden="true">
+              <circle class="success__ring" cx="60" cy="60" r="52"/>
+              <path class="success__tick" d="M38 62 54 77 84 45"/>
+            </svg>
+            <h3 class="success__title">Спасибо за заявку!</h3>
+            <p class="success__text">Ваша заявка успешно отправлена. Мы свяжемся с вами в ближайшее время.</p>
+            <div class="success__number">
+              <span>Номер заявки</span>
+              <strong data-order-number>—</strong>
+              <button type="button" class="copy-btn" data-copy-number aria-label="Скопировать номер заявки">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M13 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/></svg>
+              </button>
+            </div>
+            <p class="success__note"></p>
+            <button type="button" class="btn btn--ghost" data-new-order><span>Оформить ещё одну заявку</span></button>
+          </div>
+        </div>
+      </div>

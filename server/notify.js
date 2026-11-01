@@ -15,8 +15,9 @@ function summary(order) {
   };
 }
 
-async function sendTelegram(order, filesCount) {
-  const { token, chatId } = config.telegram;
+async function sendTelegram(order, filesCount, ctx) {
+  const token = config.telegram.token;
+  const chatId = ctx.settings.telegramChatId || config.telegram.chatId;
   if (!token || !chatId) return { skipped: true };
   const s = summary(order);
   const lines = [
@@ -36,7 +37,7 @@ async function sendTelegram(order, filesCount) {
     '',
     escHtml(cut(order.description, 700)),
     '',
-    `<a href="${escHtml(config.siteUrl)}/admin/#/orders/${order.id}">Открыть в админ-панели</a>`,
+    `<a href="${escHtml(ctx.origin)}/admin/#/orders/${order.id}">Открыть в админ-панели</a>`,
   ].filter((l) => l !== null);
 
   const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -59,7 +60,9 @@ function getTransport() {
       port: config.smtp.port,
       secure: config.smtp.secure,
       auth: config.smtp.user ? { user: config.smtp.user, pass: config.smtp.pass } : undefined,
-      connectionTimeout: 10_000,
+      connectionTimeout: 8_000,
+      greetingTimeout: 8_000,
+      socketTimeout: 10_000,
     });
   }
   return transporter;
@@ -69,24 +72,25 @@ function row(label, value) {
   return `<tr><td style="padding:6px 16px 6px 0;color:#8a8a8a;vertical-align:top;white-space:nowrap">${escHtml(label)}</td><td style="padding:6px 0;color:#111">${escHtml(value)}</td></tr>`;
 }
 
-async function sendEmails(order, filesCount) {
+async function sendEmails(order, filesCount, ctx) {
+  const notifyTo = ctx.settings.notifyEmail || config.smtp.notifyTo;
   const transport = getTransport();
   if (!transport) return { skipped: true };
   const s = summary(order);
   const jobs = [];
 
-  if (config.smtp.notifyTo) {
+  if (notifyTo) {
     jobs.push(
       transport.sendMail({
         from: config.smtp.from,
-        to: config.smtp.notifyTo,
+        to: notifyTo,
         replyTo: order.email,
         subject: `Новая заявка ${order.number}: ${order.project_name}`,
         text: [
           `Заявка ${order.number}`, `Проект: ${order.project_name}`, `Услуги: ${s.services}`, `Бюджет: ${s.budget}`,
           `Сроки: ${s.deadline}`, `Клиент: ${order.name}`, `Email: ${order.email}`, `Телефон: ${order.phone}`,
           `Telegram: ${order.telegram ? '@' + order.telegram : '—'}`, `Связь: ${s.contact}`, `Файлов: ${filesCount}`,
-          '', order.description, '', `${config.siteUrl}/admin/#/orders/${order.id}`,
+          '', order.description, '', `${ctx.origin}/admin/#/orders/${order.id}`,
         ].join('\n'),
         html: `<div style="font-family:Arial,sans-serif;font-size:14px">
           <h2 style="margin:0 0 12px">Новая заявка ${escHtml(order.number)}</h2>
@@ -94,12 +98,12 @@ async function sendEmails(order, filesCount) {
           ${row('Клиент', order.name)}${row('Email', order.email)}${row('Телефон', order.phone)}
           ${row('Telegram', order.telegram ? '@' + order.telegram : '—')}${row('Связь', s.contact)}${row('Файлов', String(filesCount))}</table>
           <p style="white-space:pre-wrap">${escHtml(order.description)}</p>
-          <p><a href="${escHtml(config.siteUrl)}/admin/#/orders/${order.id}">Открыть в админ-панели</a></p></div>`,
+          <p><a href="${escHtml(ctx.origin)}/admin/#/orders/${order.id}">Открыть в админ-панели</a></p></div>`,
       })
     );
   }
 
-  if (config.smtp.sendClientConfirmation) {
+  if (config.smtp.sendClientConfirmation && ctx.settings.clientConfirmation) {
     jobs.push(
       transport.sendMail({
         from: config.smtp.from,
@@ -119,12 +123,12 @@ async function sendEmails(order, filesCount) {
   return { sent: jobs.length };
 }
 
-// Fire-and-forget: notification failures are logged but never fail the client's submission.
-function notifyNewOrder(order, filesCount, log = console) {
-  Promise.allSettled([sendTelegram(order, filesCount), sendEmails(order, filesCount)]).then(([tg, mail]) => {
-    if (tg.status === 'rejected') log.error(`[notify] telegram failed for ${order.number}:`, tg.reason.message);
-    if (mail.status === 'rejected') log.error(`[notify] email failed for ${order.number}:`, mail.reason.message);
-  });
+// Notification failures are logged but never fail the client's submission.
+async function notifyNewOrder(order, filesCount, { origin, settings }, log = console) {
+  const ctx = { origin, settings: settings || {} };
+  const [tg, mail] = await Promise.allSettled([sendTelegram(order, filesCount, ctx), sendEmails(order, filesCount, ctx)]);
+  if (tg.status === 'rejected') log.error(`[notify] telegram failed for ${order.number}:`, tg.reason.message);
+  if (mail.status === 'rejected') log.error(`[notify] email failed for ${order.number}:`, mail.reason.message);
 }
 
 module.exports = { notifyNewOrder };

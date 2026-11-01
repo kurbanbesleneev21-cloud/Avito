@@ -55,8 +55,8 @@ function orderForm(overrides = {}, files = []) {
 const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from('rest-of-png')]);
 
 before(async () => {
-  const created = await createApp();
-  store = created.store;
+  const created = createApp();
+  store = await created.getStore();
   await new Promise((resolve) => { server = created.app.listen(0, resolve); });
   base = `http://127.0.0.1:${server.address().port}`;
 });
@@ -195,4 +195,95 @@ test('admin API: auth, list, search, filter, detail, status, file download, stat
   const logout = await fetch(`${base}/api/admin/logout`, { method: 'POST', headers: { cookie } });
   assert.equal(logout.status, 200);
   assert.equal((await get('/api/admin/stats')).status, 401, 'session revoked on logout');
+});
+
+/* ---------------- CMS ---------------- */
+async function adminCookie() {
+  const login = await fetch(`${base}/api/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'admin', password: 'correct-horse-battery' }) });
+  assert.equal(login.status, 200);
+  return login.headers.get('set-cookie').split(';')[0];
+}
+
+test('CMS: content edits are rendered on the site, sanitised and versioned', async () => {
+  const cookie = await adminCookie();
+  const json = (u, method, body) => fetch(base + u, { method, headers: { cookie, 'Content-Type': 'application/json' }, body: body && JSON.stringify(body) });
+
+  const { content } = await (await fetch(`${base}/api/admin/content`, { headers: { cookie } })).json();
+  content.hero.line1 = 'Новый <b>заголовок</b>';
+  content.faq.enabled = false;
+  content.contacts.email = 'team@studio.test';
+  content.projects.items[0].published = false;
+  content.projects.items.push({ title: 'Свой проект', slug: '', type: 'Сайт', summary: 'Описание', published: true, isDemo: false, evil: 'x' });
+  content.socials.push({ type: 'github', url: 'javascript:alert(1)' });
+  content.unknownSection = { x: 1 };
+
+  const saved = await (await json('/api/admin/content', 'PUT', { content })).json();
+  assert.equal(saved.ok, true);
+  assert.equal(saved.content.unknownSection, undefined, 'unknown keys dropped');
+  const custom = saved.content.projects.items.at(-1);
+  assert.equal(custom.slug, 'svoy-proekt', 'slug generated from title');
+  assert.equal(custom.evil, undefined);
+
+  const home = await (await fetch(base)).text();
+  assert.match(home, /Новый &lt;b&gt;заголовок&lt;\/b&gt;/, 'content is HTML-escaped');
+  assert.doesNotMatch(home, /id="faq"/, 'disabled section hidden');
+  assert.match(home, /team@studio\.test/);
+  assert.doesNotMatch(home, /javascript:alert/, 'unsafe URLs dropped');
+  assert.match(home, /\/projects\/svoy-proekt/);
+  assert.equal((await fetch(`${base}/projects/nova-finance-dashboard`)).status, 404, 'unpublished project hidden');
+  assert.equal((await fetch(`${base}/projects/svoy-proekt`)).status, 200);
+  assert.doesNotMatch(await (await fetch(`${base}/sitemap.xml`)).text(), /nova-finance-dashboard/);
+
+  const versions = (await (await fetch(`${base}/api/admin/content/versions`, { headers: { cookie } })).json()).items;
+  assert.ok(versions.length >= 1);
+  const reset = await (await json('/api/admin/content/reset', 'POST')).json();
+  assert.equal(reset.content.faq.enabled, true);
+  assert.match(await (await fetch(base)).text(), /id="faq"/);
+});
+
+test('CMS: closing order intake hides the form and rejects submissions', async () => {
+  const cookie = await adminCookie();
+  const { content } = await (await fetch(`${base}/api/admin/content`, { headers: { cookie } })).json();
+  content.order.acceptingOrders = false;
+  await fetch(`${base}/api/admin/content`, { method: 'PUT', headers: { cookie, 'Content-Type': 'application/json' }, body: JSON.stringify({ content }) });
+  assert.doesNotMatch(await (await fetch(base)).text(), /id="order-form"/);
+  const res = await fetch(`${base}/api/orders`, { method: 'POST', body: orderForm() });
+  assert.equal(res.status, 403);
+  content.order.acceptingOrders = true;
+  await fetch(`${base}/api/admin/content`, { method: 'PUT', headers: { cookie, 'Content-Type': 'application/json' }, body: JSON.stringify({ content }) });
+});
+
+test('CMS: media upload validates images and serves them', async () => {
+  const cookie = await adminCookie();
+  const bad = new FormData();
+  bad.append('file', new Blob(['<svg onload=alert(1)>'], { type: 'image/svg+xml' }), 'x.svg');
+  assert.equal((await fetch(`${base}/api/admin/media`, { method: 'POST', headers: { cookie }, body: bad })).status, 400);
+
+  const fd = new FormData();
+  fd.append('file', new Blob([PNG], { type: 'image/png' }), 'cover.png');
+  const up = await fetch(`${base}/api/admin/media`, { method: 'POST', headers: { cookie }, body: fd });
+  assert.equal(up.status, 201);
+  const m = await up.json();
+  const img = await fetch(base + m.url);
+  assert.equal(img.status, 200);
+  assert.deepEqual(Buffer.from(await img.arrayBuffer()), PNG);
+  const list = (await (await fetch(`${base}/api/admin/media`, { headers: { cookie } })).json()).items;
+  assert.equal(list.length, 1);
+  assert.equal((await fetch(`${base}/api/admin/media/${m.id}`, { method: 'DELETE', headers: { cookie } })).status, 200);
+  assert.equal((await fetch(base + m.url)).status, 404);
+});
+
+test('CMS: password change invalidates old sessions and replaces the env password', async () => {
+  const cookie = await adminCookie();
+  const other = await adminCookie();
+  await new Promise((r) => setTimeout(r, 5));
+  const res = await fetch(`${base}/api/admin/password`, { method: 'POST', headers: { cookie, 'Content-Type': 'application/json' }, body: JSON.stringify({ current: 'correct-horse-battery', next: 'brand-new-password-42' }) });
+  assert.equal(res.status, 200);
+  const fresh = res.headers.get('set-cookie').split(';')[0];
+  assert.equal((await fetch(`${base}/api/admin/stats`, { headers: { cookie: other } })).status, 401, 'other sessions ended');
+  assert.equal((await fetch(`${base}/api/admin/stats`, { headers: { cookie: fresh } })).status, 200);
+  const oldPw = await fetch(`${base}/api/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'admin', password: 'correct-horse-battery' }) });
+  assert.equal(oldPw.status, 401);
+  const newPw = await fetch(`${base}/api/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'admin', password: 'brand-new-password-42' }) });
+  assert.equal(newPw.status, 200);
 });

@@ -26,7 +26,13 @@
   };
   const FIELD_STEP = Object.fromEntries(Object.entries(STEP_FIELDS).flatMap(([s, fs]) => fs.map((f) => [f, Number(s)])));
   const FILE_EXT = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.pdf', '.docx', '.xlsx', '.pptx', '.txt'];
-  const MAX_FILES = 5, MAX_SIZE = 10 * 1024 * 1024;
+  const section = document.getElementById('order');
+  const ds = (section && section.dataset) || {};
+  const MAX_FILES = Number(ds.maxFiles) || 5;
+  const MAX_SIZE = Number(ds.maxSize) || 10 * 1024 * 1024;
+  const MAX_TOTAL = Number(ds.maxTotal) || 25 * 1024 * 1024;
+  const CONTACT_EMAIL = ds.contactEmail || '';
+  const MB = (b) => Math.round(b / 1048576);
   const DRAFT_KEY = 'cf-order-draft-v1';
 
   const panels = $$('.panel', form);
@@ -208,7 +214,8 @@
     for (const f of list) {
       const ext = (f.name.match(/\.[^.]+$/) || [''])[0].toLowerCase();
       if (!FILE_EXT.includes(ext)) { errors.push(`«${f.name}»: недопустимый формат`); continue; }
-      if (f.size > MAX_SIZE) { errors.push(`«${f.name}»: больше 10 МБ`); continue; }
+      if (f.size > MAX_SIZE) { errors.push(`«${f.name}»: больше ${MB(MAX_SIZE)} МБ`); continue; }
+      if (files.reduce((n, x) => n + x.size, 0) + f.size > MAX_TOTAL) { errors.push(`Общий размер файлов — не больше ${MB(MAX_TOTAL)} МБ`); continue; }
       if (f.size === 0) { errors.push(`«${f.name}»: пустой файл`); continue; }
       if (files.some((x) => x.name === f.name && x.size === f.size)) continue;
       if (files.length >= MAX_FILES) { errors.push(`Можно прикрепить не более ${MAX_FILES} файлов`); break; }
@@ -358,7 +365,7 @@
   async function send(isRetry) {
     const t = await ensureToken();
     if (!t) {
-      showAlert('Не удалось связаться с сервером. Проверьте подключение к интернету и попробуйте ещё раз. Если ошибка повторяется — напишите нам на <a href="mailto:hello@codeforge.dev">hello@codeforge.dev</a>.');
+      showAlert(`Не удалось связаться с сервером. Проверьте подключение к интернету и попробуйте ещё раз.${CONTACT_EMAIL ? ` Если ошибка повторяется — напишите нам на <a href="mailto:${escapeHtml(CONTACT_EMAIL)}">${escapeHtml(CONTACT_EMAIL)}</a>.` : ''}`);
       return;
     }
     const fd = new FormData();
