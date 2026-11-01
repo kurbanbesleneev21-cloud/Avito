@@ -1,0 +1,24 @@
+{
+  "name": "codeforge-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CODEFORGE — premium digital development agency website with order intake and admin panel",
+  "main": "server/index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/index.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch server/index.js",
+    "hash-password": "node scripts/hash-password.js",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
+  },
+  "dependencies": {
+    "express": "^4.22.3",
+    "multer": "^2.0.2",
+    "nodemailer": "^10.3.1",
+    "pg": "^8.16.3",
+    "zod": "^4.6.7"
+  }
+}

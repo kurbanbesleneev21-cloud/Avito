@@ -1,0 +1,80 @@
+'use strict';
+
+// Server-side rendering for secondary pages (project case studies, legal pages, 404).
+
+const fs = require('node:fs');
+const path = require('node:path');
+const config = require('./config');
+const { esc, safeUrl, head, nav, footer, ARROW } = require('./views/partials');
+const { projectCard } = require('./views/home');
+
+function layout(c, { origin, title, description, canonical, body, ogImage, jsonLd, noindex = false }) {
+  return `${head({ c, origin, title, description, canonical, ogImage, jsonLd, noindex })}
+<body>
+  <a class="skip-link" href="#main">Перейти к содержимому</a>
+  <canvas class="bg-particles" aria-hidden="true"></canvas>
+  <div class="cursor" aria-hidden="true"><span class="cursor__dot"></span><span class="cursor__ring"></span></div>
+${nav(c)}
+  <main id="main">
+${body}
+  </main>
+${footer(c)}
+</body>
+</html>`;
+}
+
+function renderProjectPage(c, p, { origin }) {
+  const others = c.projects.items.filter((x) => x.published && x.slug !== p.slug).slice(0, 3);
+  const img = safeUrl(p.preview, { allowMailTel: false });
+  const body = `
+    <section class="page-hero">
+      <div class="container">
+        <nav class="breadcrumbs" aria-label="Хлебные крошки"><a href="/">Главная</a><span aria-hidden="true">/</span><a href="/#projects">Проекты</a><span aria-hidden="true">/</span><span aria-current="page">${esc(p.title)}</span></nav>
+        <p class="eyebrow page-eyebrow">${p.year ? `<span class="eyebrow__num">${esc(p.year)}</span>` : ''}${esc(p.type)}</p>
+        <h1 class="page-title">${esc(p.title)}</h1>
+        <p class="page-lead">${esc(p.summary)}</p>
+        ${p.isDemo ? `<p class="demo-note"><span aria-hidden="true">ⓘ</span><span><b>Демонстрационный концепт.</b> Этот проект создан студией как пример подхода к дизайну и архитектуре. Он не является реальным заказом клиента, а названия и данные вымышлены.</span></p>` : ''}
+        ${img ? `<figure class="project-cover"><img src="${esc(img)}" alt="Превью проекта ${esc(p.title)}" width="1600" height="1120" decoding="async"></figure>` : ''}
+        ${p.metrics.filter((m) => m.value).length ? `<div class="metrics">${p.metrics.filter((m) => m.value).map((m) => `<div><b>${esc(m.value)}</b><span>${esc(m.label)}</span></div>`).join('')}</div>` : ''}
+      </div>
+    </section>
+    <section class="container project-layout">
+      <div class="prose">
+        ${p.challenge ? `<h2>Задача</h2><p>${esc(p.challenge)}</p>` : ''}
+        ${p.solution.filter(Boolean).length ? `<h2>Решение</h2><ul>${p.solution.filter(Boolean).map((s) => `<li>${esc(s)}</li>`).join('')}</ul>` : ''}
+        <h2>Хотите похожий продукт?</h2>
+        <p>Расскажите о своей задаче — мы предложим архитектуру, сроки и смету под ваш бюджет.</p>
+        <p class="prose-cta"><a class="btn btn--primary" href="/#order"><span>Обсудить проект</span>${ARROW}</a></p>
+      </div>
+      <aside class="aside-card" aria-label="Параметры проекта">
+        <dl><dt>Тип</dt><dd>${esc(p.type)}</dd></dl>
+        ${p.isDemo ? '<dl><dt>Статус</dt><dd>Демонстрационный концепт</dd></dl>' : ''}
+        ${p.stack.filter(Boolean).length ? `<dl><dt>Технологии</dt><dd class="stack-tags">${p.stack.filter(Boolean).map((s) => `<span>${esc(s)}</span>`).join('')}</dd></dl>` : ''}
+      </aside>
+    </section>
+    ${others.length ? `<section class="container more-projects" aria-labelledby="more-title">
+      <h2 id="more-title">Другие проекты</h2>
+      <div class="projects-grid">${others.map(projectCard).join('')}</div>
+    </section>` : ''}`;
+
+  return layout(c, {
+    origin,
+    title: `${p.title} — ${p.type}${p.isDemo ? ' | Демо-концепт' : ''} | ${c.brand.name}`,
+    description: p.summary,
+    canonical: `/projects/${p.slug}`,
+    ogImage: img || undefined,
+    body,
+    jsonLd: { '@context': 'https://schema.org', '@type': 'CreativeWork', name: p.title, description: p.summary, genre: p.type, creator: { '@type': 'Organization', name: c.brand.name }, keywords: p.stack.join(', ') },
+  });
+}
+
+const CONTENT_DIR = path.join(__dirname, 'content');
+const fileCache = new Map();
+function contentPage(c, name, opts) {
+  if (!fileCache.has(name) || !config.isProd) fileCache.set(name, fs.readFileSync(path.join(CONTENT_DIR, `${name}.html`), 'utf8'));
+  const email = c.contacts.email || 'hello@codeforge.dev';
+  const body = fileCache.get(name).replaceAll('hello@codeforge.dev', esc(email)).replaceAll('CODEFORGE', esc(c.brand.name));
+  return layout(c, { ...opts, title: opts.title.replaceAll('CODEFORGE', c.brand.name), body });
+}
+
+module.exports = { renderProjectPage, contentPage, layout };
